@@ -33,7 +33,10 @@ jobs:
           git fetch --depth=1 "$R" tag android12-5.4.254_r00
           git checkout -f tags/android12-5.4.254_r00
           tr -d '\n' < "$GITHUB_WORKSPACE/scmversion.txt" > .scmversion
-          printf '%s\n' CONFIG_SYSVIPC=y CONFIG_POSIX_MQUEUE=y CONFIG_PID_NS=y CONFIG_IPC_NS=y CONFIG_USER_NS=y >> arch/arm64/configs/gki_defconfig
+          sed -i 's/^CONFIG_UAPI_HEADER_TEST=y$/&\nCONFIG_SYSVIPC=y\nCONFIG_POSIX_MQUEUE=y/' arch/arm64/configs/gki_defconfig
+          sed -i 's/^# CONFIG_PID_NS is not set$/CONFIG_USER_NS=y/' arch/arm64/configs/gki_defconfig
+          head -8 arch/arm64/configs/gki_defconfig
+          grep -n "USER_NS" arch/arm64/configs/gki_defconfig
       - name: Build
         shell: bash
         run: |
