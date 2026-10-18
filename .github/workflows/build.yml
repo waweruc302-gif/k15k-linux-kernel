@@ -2,10 +2,15 @@ name: build-kernel
 on:
   workflow_dispatch:
     inputs:
-      enable_options:
-        description: 'Enable PID_NS, IPC_NS, USER_NS, SYSVIPC'
-        type: boolean
-        default: true
+      option:
+        description: 'Which container option to enable (one at a time)'
+        type: choice
+        default: none
+        options:
+          - none
+          - sysvipc
+          - posix_mqueue
+          - user_ns
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,13 +44,26 @@ jobs:
           git fetch --depth=1 "$R" tag android12-5.4.254_r00
           git checkout -f tags/android12-5.4.254_r00
           tr -d '\n' < "$GITHUB_WORKSPACE/scmversion.txt" > .scmversion
-      - name: Enable container options
-        if: ${{ inputs.enable_options }}
+      - name: Enable SYSVIPC only
+        if: ${{ inputs.option == 'sysvipc' }}
         shell: bash
         run: |
           set -euo pipefail
           cd ~/gki/common
-          sed -i 's/^CONFIG_UAPI_HEADER_TEST=y$/&\nCONFIG_SYSVIPC=y\nCONFIG_POSIX_MQUEUE=y/' arch/arm64/configs/gki_defconfig
+          sed -i 's/^CONFIG_UAPI_HEADER_TEST=y$/&\nCONFIG_SYSVIPC=y/' arch/arm64/configs/gki_defconfig
+      - name: Enable POSIX_MQUEUE only
+        if: ${{ inputs.option == 'posix_mqueue' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ~/gki/common
+          sed -i 's/^CONFIG_UAPI_HEADER_TEST=y$/&\nCONFIG_POSIX_MQUEUE=y/' arch/arm64/configs/gki_defconfig
+      - name: Enable USER_NS only
+        if: ${{ inputs.option == 'user_ns' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ~/gki/common
           sed -i 's/^# CONFIG_PID_NS is not set$/CONFIG_USER_NS=y/' arch/arm64/configs/gki_defconfig
       - name: Build
         shell: bash
@@ -58,11 +76,11 @@ jobs:
         shell: bash
         run: |
           strings ~/gki/out/android12-5.4/dist/Image | grep -m1 "^Linux version 5"
-          grep -E "CONFIG_(PID_NS|SYSVIPC|IPC_NS|USER_NS)=" ~/gki/out/android12-5.4/common/.config || true
+          grep -E "CONFIG_(PID_NS|SYSVIPC|IPC_NS|USER_NS|POSIX_MQUEUE)=" ~/gki/out/android12-5.4/common/.config || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kernel-dist-options-${{ inputs.enable_options }}
+          name: kernel-dist-${{ inputs.option }}
           path: |
             /home/runner/gki/out/android12-5.4/dist/Image
             /home/runner/gki/out/android12-5.4/dist/Module.symvers
